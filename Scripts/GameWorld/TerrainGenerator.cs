@@ -35,6 +35,7 @@ public class TerrainData
         //
 
         vertices = new Vector3[(input.resolution+1)*(input.resolution+1)];
+        uvs = new Vector2[(input.resolution + 1) * (input.resolution + 1)];
         colors = new Color[vertices.Length];// 1 color per vertex
         triangles = new int[input.resolution * input.resolution * 2 * 3];
 
@@ -51,7 +52,6 @@ public class TerrainGenerator {
 
     public static Thread[] TerrainThreads = null;
     public static int threadCount = 4;
-    public static float textureScale = 100f;
 
     public static void EnsureThreads()
     {
@@ -209,7 +209,7 @@ public class TerrainGenerator {
                 float zPos = y * step;
 
                 data.vertices[position] = new Vector3(xPos, yPos, zPos);
-                data.uvs[position] = textureScale * new Vector2(xPos, zPos) / input.size;
+                data.uvs[position] = new Vector2(xPos, zPos) / input.size;
                 data.colors[position] = ColorManager.ColorFromNoise(noiseMap[noiseMapPosition]);
             }
         }
