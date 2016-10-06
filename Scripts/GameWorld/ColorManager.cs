@@ -3,10 +3,10 @@ using System.Collections;
 
 public class ColorManager {
 
-    static float seaFloor = 0.1f;
-    static float sandHeight = seaFloor + 0.07f;
-    static float plainsHeight = 0.75f;
-    static float mountainHeight = plainsHeight + 0.2f;
+    static public float seaFloor = 0.1f;
+    static public float sandHeight = seaFloor + 0.07f;
+    static public float plainsHeight = 0.75f;
+    static public float mountainHeight = plainsHeight + 0.2f;
 
     static Color seaColor = new Color(0,0.4f,0.8f);
     static Color sandColor = new Color(1,0.97f,0.61f);

@@ -49,7 +49,7 @@ public class TerrainGenerator {
     public static Dictionary<CellPos,TerrainData> outputDictionary = new Dictionary<CellPos, TerrainData>();
 
     public static Thread[] TerrainThreads = null;
-    public static int threadCount = 4;
+    public static int threadCount = 8;
 
     public static void EnsureThreads()
     {
@@ -194,7 +194,8 @@ public class TerrainGenerator {
         float step = ((float)input.size) / ((float)input.resolution);
         int resolutionFactor = Cell.ResolutionLevels[0]/ input.resolution; // Maximum resolution / requesting resolution
 
-        // Let's first set our vertices.
+        // Let's first set our vertices
+        System.Random random = new System.Random();
         for (int x = 0; x <= input.resolution; x++)
         {
             for (int y = 0; y <= input.resolution; y++)
@@ -206,8 +207,13 @@ public class TerrainGenerator {
                 float yPos = input.startPosition.y + noiseMap[noiseMapPosition] * HeightScale;
                 float zPos = y * step;
 
+                float colorOffset = 0;//
+
+                if (noiseMap[noiseMapPosition] > ColorManager.sandHeight)
+                    colorOffset = Mathf.PerlinNoise(xPos / 100f, zPos / 100f) * 0.2f;
+
                 data.vertices[position] = new Vector3(xPos, yPos, zPos);
-                data.colors[position] = ColorManager.ColorFromNoise(noiseMap[noiseMapPosition]);
+                data.colors[position] = ColorManager.ColorFromNoise(noiseMap[noiseMapPosition] + colorOffset );
             }
         }
 

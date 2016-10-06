@@ -18,7 +18,7 @@ public class Cell {
 
     // Constants... Why can't you define these at the head in C#???
     public static string terrainShaderName = "Custom/StandardVertex";
-    public static int[] ResolutionLevels = { 60, 60, 30, 20, 10 }; 
+    public static int[] ResolutionLevels = { 128, 128, 64, 32, 16 };//
 
     public CellPos position;
     public int size;
@@ -107,13 +107,15 @@ public class Cell {
 
         int resolutionLevel = ResolutionLevels[Lod];
 
-        if (currentResolution == resolutionLevel)
-            return;
+        if (currentResolution != resolutionLevel)
+        {
+            currentResolution = resolutionLevel;
+            requestingResolution = resolutionLevel;
 
-        currentResolution = resolutionLevel;
-        requestingResolution = resolutionLevel;
+            GenerateTerrainData();
+        }
 
-        GenerateTerrainData();
+        UpdatePhysics();
     }
 
     public void TerrainCallback(TerrainData data)
@@ -193,13 +195,26 @@ public class Cell {
         Mesh mesh = TerrainGenerator.TerrainToMesh(terrainData);
 
         MeshFilter filter = terrainObject.GetComponent<MeshFilter>();
-        MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
-
         filter.mesh = mesh;
 
-        if (currentResolution == ResolutionLevels[0])
-            collider.sharedMesh = mesh;
-        else
-            collider.sharedMesh = null;
+        UpdatePhysics();
+    }
+
+    public void UpdatePhysics()
+    {
+        lock (loadLock)
+        {
+            if (loadState != LoadState.Loaded)
+            {
+                return;
+            }
+            MeshFilter filter = terrainObject.GetComponent<MeshFilter>();
+
+            MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
+            if (this.Lod == 0 && filter.mesh != null)
+                collider.sharedMesh = filter.mesh;
+            else
+                collider.sharedMesh = null;
+        }
     }
 }
