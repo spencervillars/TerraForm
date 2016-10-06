@@ -18,6 +18,7 @@ public class Cell {
 
     // Constants... Why can't you define these at the head in C#???
     public static string terrainShaderName = "Custom/StandardVertex";
+    public static string terrainMaterialName = "TerrainMaterial";
     public static int[] ResolutionLevels = { 60, 60, 30, 20, 10 }; 
 
     public CellPos position;
@@ -162,7 +163,7 @@ public class Cell {
         GameObject terrain = new GameObject(gameObjectName);
         this.terrainObject = terrain;
 
-        Material material = new Material(Shader.Find(terrainShaderName));
+        Material material = new Material(Shader.Find(terrainShaderName));//(Material)Resources.Load(terrainMaterialName, typeof(Material));
 
         MeshFilter filter = terrain.AddComponent<MeshFilter>();
         MeshRenderer renderer = terrain.AddComponent<MeshRenderer>();

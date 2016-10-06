@@ -16,6 +16,7 @@ public class TerrainData
 {
     public TerrainInput input;
     public Vector3[] vertices;
+    public Vector2[] uvs;
     public Color[] colors;
     public int[] triangles;
 
@@ -50,6 +51,7 @@ public class TerrainGenerator {
 
     public static Thread[] TerrainThreads = null;
     public static int threadCount = 4;
+    public static float textureScale = 100f;
 
     public static void EnsureThreads()
     {
@@ -207,6 +209,7 @@ public class TerrainGenerator {
                 float zPos = y * step;
 
                 data.vertices[position] = new Vector3(xPos, yPos, zPos);
+                data.uvs[position] = textureScale * new Vector2(xPos, zPos) / input.size;
                 data.colors[position] = ColorManager.ColorFromNoise(noiseMap[noiseMapPosition]);
             }
         }
@@ -270,6 +273,7 @@ public class TerrainGenerator {
         mesh.vertices = data.vertices;
         mesh.colors = data.colors;
         mesh.triangles = data.triangles;
+        mesh.uv = mesh.uv2 = mesh.uv3 = mesh.uv4 = data.uvs;
 
         mesh.RecalculateBounds();
         mesh.RecalculateNormals();
