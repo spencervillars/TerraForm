@@ -4,10 +4,10 @@ using System.Collections;
 public static class NoiseGenerator {
 
     public static int octaves = 7;//Generates enough specificity
-    public static float lacunarity = 2.2f;// Random values chosen
-    public static float persistence = 0.34f;// Random good values
+    public static float lacunarity = 3f;// Random values chosen
+    public static float persistence = 0.3f;// Random good values
     public static float scale = 3500f;// Scale our map up by this amount.
-    public static float roughnessScale = 2000f;
+    public static float roughnessScale = 2500f;
 
     public static float seed;
     public static float seed2;
@@ -35,7 +35,7 @@ public static class NoiseGenerator {
             float xPos = (x+seed) * frequency / scale;
             float yPos = (y+seed) * frequency / scale;
 
-            noiseValue += (i==0 ? 1 : roughness ) * Mathf.PerlinNoise(xPos, yPos) * amplitude;
+            noiseValue += (i<2 ? 1 : roughness ) * Mathf.PerlinNoise(xPos, yPos) * amplitude;
 
             frequency *= lacunarity;
             amplitude *= persistence;

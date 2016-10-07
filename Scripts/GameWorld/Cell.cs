@@ -19,7 +19,7 @@ public class Cell {
     // Constants... Why can't you define these at the head in C#???
     public static string terrainShaderName = "Custom/StandardVertex";
     public static string terrainMaterialName = "Materials/Terrain";
-    public static int[] ResolutionLevels = { 60, 60, 30, 20, 10 }; 
+    public static int[] ResolutionLevels = { 80,80,40,20,10 }; 
 
     public CellPos position;
     public int size;
