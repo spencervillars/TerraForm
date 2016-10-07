@@ -210,7 +210,13 @@ public class TerrainGenerator {
 
                 data.vertices[position] = new Vector3(xPos, yPos, zPos);
                 data.uvs[position] = new Vector2(xPos, zPos) / input.size;
-                data.colors[position] = ColorManager.ColorFromNoise(noiseMap[noiseMapPosition]);
+
+                float colorNoise = noiseMap[noiseMapPosition];
+
+                if (colorNoise > ColorManager.sandHeight)
+                    colorNoise += Mathf.PerlinNoise(xPos / 100f, zPos / 100f) * 0.2f;
+
+                data.colors[position] = ColorManager.ColorFromNoise(colorNoise);
             }
         }
 

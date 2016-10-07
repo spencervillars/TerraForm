@@ -2,6 +2,7 @@
 
 		Properties {
 			_GrassTex("Grass", 2D) = "white" {}
+			_GrassNormal("Grass Normals", 2D) = "white" {}
 			_SandTex("Sand", 2D) = "white" {}
 			_DirtTex("Dirt", 2D) = "white" {}
 			_SnowTex("Snow", 2D) = "white" {}
@@ -15,7 +16,7 @@
 		
 		CGPROGRAM
 		// Physically based Standard lighting model, and enable shadows on all light types
-		#pragma surface surf Standard vertex:vert fullforwardshadows
+		#pragma surface surf Lambert vertex:vert
 
 		// Use shader model 3.0 target, to get nicer looking lighting
 		#pragma target 3.0
@@ -39,8 +40,9 @@
 		sampler2D _SandTex;
 		sampler2D _SnowTex;
 		sampler2D _DirtTex;
+		sampler2D _GrassNormal;
 
-		void surf(Input IN, inout SurfaceOutputStandard o)
+		void surf(Input IN, inout SurfaceOutput o)
 		{
 			// Albedo comes from a texture tinted by color
 			fixed4 c1 = tex2D(_SandTex, IN.uv_SandTex);
@@ -53,8 +55,8 @@
 				+ c3.rgb * IN.vertexColor.z
 				+ c4.rgb * IN.vertexColor.w;
 
-			o.Metallic = _Metallic;
-			o.Smoothness = _Glossiness;
+			o.Normal = UnpackNormal(tex2D(_GrassNormal, IN.uv_GrassTex));
+			
 			o.Alpha = 1;
 		}
 

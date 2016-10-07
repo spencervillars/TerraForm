@@ -7,12 +7,15 @@ public static class NoiseGenerator {
     public static float lacunarity = 2.2f;// Random values chosen
     public static float persistence = 0.34f;// Random good values
     public static float scale = 3500f;// Scale our map up by this amount.
+    public static float roughnessScale = 2000f;
 
     public static float seed;
+    public static float seed2;
 
     public static void Initialize()
     {
         seed = Random.Range(0, 1000000f);
+        seed2 = Random.Range(0, 1000000f);
     }
 
     public static float generateNoise( float x, float y )
@@ -21,12 +24,18 @@ public static class NoiseGenerator {
         float amplitude = 1f;
         float frequency = 1f;
 
+        float roughnessPosX = (x + seed2) / roughnessScale;
+        float roughnessPosY = (y + seed2) / roughnessScale;
+
+        float roughness = Mathf.PerlinNoise(roughnessPosX, roughnessPosY);
+        roughness = 1 - roughness * roughness;
+
         for (int i = 0; i < octaves; i++ )
         {
             float xPos = (x+seed) * frequency / scale;
             float yPos = (y+seed) * frequency / scale;
 
-            noiseValue += Mathf.PerlinNoise(xPos, yPos) * amplitude;
+            noiseValue += (i==0 ? 1 : roughness ) * Mathf.PerlinNoise(xPos, yPos) * amplitude;
 
             frequency *= lacunarity;
             amplitude *= persistence;
