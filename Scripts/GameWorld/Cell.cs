@@ -31,10 +31,11 @@ public class Cell {
     public int currentResolution;
     public int requestingResolution;
 
-    public  TerrainData terrainData;
+    public TerrainData terrainData;
     public float[] cachedNoiseMap;
 
     private GameObject terrainObject;
+    private GameObject grassObject;
 
     public Cell( CellPos pos, int size )
     {
@@ -93,8 +94,7 @@ public class Cell {
             // Should this be in the lock?
             // It's like to take a LOT of time, but also
             // We really can't have an object unloaded while it's trying to make the gameobject....
-            if (terrainObject == null)
-                GenerateGameObject();
+            GenerateGameObjects();
         }
     }
 
@@ -107,6 +107,23 @@ public class Cell {
         this.Lod = Lod;
 
         int resolutionLevel = ResolutionLevels[Lod];
+
+        lock (loadLock)
+        {
+            if (terrainObject != null)
+            {
+                MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
+                if (Lod == 0)
+                    collider.sharedMesh = terrainObject.GetComponent<MeshFilter>().mesh;
+                else
+                    collider.sharedMesh = null;
+            }
+        }
+
+        if (Lod <= 1)
+            GenerateGrassObject();
+        else
+            DestroyGrassObjects();
 
         if (currentResolution == resolutionLevel)
             return;
@@ -121,15 +138,15 @@ public class Cell {
     {
         this.terrainData = data;
         UpdateMesh();
+        GenerateGrassObject();
     }
 
     public void Unload()
     {
         lock (loadLock)
         {
+            DestroyGameObjects();
             loadState = LoadState.Unloaded;
-            GameObject.Destroy(terrainObject);
-            terrainObject = null;
             terrainData = null;
             cachedNoiseMap = null;
         }
@@ -156,12 +173,57 @@ public class Cell {
         }
     }
 
-    private void GenerateGameObject()
+    private void GenerateGameObjects()
     {
+        GenerateTerrainObject();
+    }
+
+    private void DestroyGameObjects()
+    {
+        GameObject.Destroy(terrainObject);
+        terrainObject = null;
+        DestroyGrassObjects();
+    }
+
+    private void DestroyGrassObjects()
+    {
+        if (grassObject == null)
+            return;
+
+        GameObject.Destroy(grassObject);
+
+        grassObject = null;
+    }
+
+    private void GenerateGrassObject()
+    {
+        lock (loadLock)
+        {
+            if (terrainData == null || grassObject != null || terrainObject == null || Lod > 1)
+                return;
+            grassObject = GrassObject.MakeGrassObject(terrainData.grass, terrainObject);
+        }
+
+    }
+
+    private void GenerateTerrainObject()
+    {
+        lock (loadLock)
+        {
+            if (terrainObject != null)
+                return;
+        }
+
         string gameObjectName = "CellTerrain_" + position.x.ToString() + "_" + position.y.ToString();
 
         GameObject terrain = new GameObject(gameObjectName);
-        this.terrainObject = terrain;
+
+        lock (loadLock)
+        {
+            if (terrainObject != null)
+                return;
+            this.terrainObject = terrain;
+        }
 
         Material material = (Material)Resources.Load(terrainMaterialName, typeof(Material));
 
@@ -194,12 +256,12 @@ public class Cell {
         Mesh mesh = TerrainGenerator.TerrainToMesh(terrainData);
 
         MeshFilter filter = terrainObject.GetComponent<MeshFilter>();
-        MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
 
         filter.mesh = mesh;
 
-        if (currentResolution == ResolutionLevels[0])
-            collider.sharedMesh = mesh;
+        MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
+        if (Lod == 0)
+            collider.sharedMesh = terrainObject.GetComponent<MeshFilter>().mesh;
         else
             collider.sharedMesh = null;
     }

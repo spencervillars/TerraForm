@@ -12,6 +12,39 @@ public struct TerrainInput
     public Vector3 startPosition;
 }
 
+public class GrassData
+{
+    public int grassCount
+    {
+        set
+        {
+            vertices = new Vector3[value * 12];
+            uvs = new Vector2[vertices.Length];
+            normals = new Vector3[vertices.Length];
+            triangles = new int[3 * 3 * 4 * value];
+            _grasscount = value;
+        }
+
+        get
+        {
+            return _grasscount;
+        }
+    }
+
+    private int _grasscount;
+
+    public Vector3[] vertices;
+    public Vector3[] normals;
+    public Vector2[] uvs;
+    public int[] triangles;
+
+    public GrassData()
+    {
+
+    }
+
+}
+
 public class TerrainData
 {
     public TerrainInput input;
@@ -19,6 +52,7 @@ public class TerrainData
     public Vector2[] uvs;
     public Color[] colors;
     public int[] triangles;
+    public GrassData grass;
 
     public TerrainData( TerrainInput input )
     {
@@ -38,6 +72,7 @@ public class TerrainData
         uvs = new Vector2[(input.resolution + 1) * (input.resolution + 1)];
         colors = new Color[vertices.Length];// 1 color per vertex
         triangles = new int[input.resolution * input.resolution * 2 * 3];
+        grass = new GrassData();
 
     }
 }
@@ -52,6 +87,8 @@ public class TerrainGenerator {
 
     public static Thread[] TerrainThreads = null;
     public static int threadCount = 4;
+
+    public static int GrassCount = 4000;
 
     public static void EnsureThreads()
     {
@@ -211,12 +248,8 @@ public class TerrainGenerator {
                 data.vertices[position] = new Vector3(xPos, yPos, zPos);
                 data.uvs[position] = new Vector2(xPos, zPos) / input.size;
 
-                float colorNoise = noiseMap[noiseMapPosition];
-
-                if (colorNoise > ColorManager.sandHeight)
-                    colorNoise += Mathf.PerlinNoise(xPos / 100f, zPos / 100f) * 0.2f;
-
-                data.colors[position] = ColorManager.ColorFromNoise(colorNoise);
+                Color color = ColorManager.ColorPoint(xPos + input.startPosition.x, yPos + input.startPosition.z, noiseMap[noiseMapPosition]);
+                data.colors[position] = color;
             }
         }
 
@@ -269,6 +302,29 @@ public class TerrainGenerator {
                 data.triangles[counter++] = botRight;
             }
         }
+
+        GrassData grassData = new GrassData();
+        grassData.grassCount = GrassCount;
+
+        System.Random random = new System.Random(new System.DateTime().Millisecond);
+        for (int i = 0; i < grassData.grassCount; i++)
+        {
+            float xPos = (float)random.NextDouble() * input.size;
+            float zPos = (float)random.NextDouble() * input.size;
+
+            int xCoord = Mathf.FloorToInt(xPos * input.resolution / input.size);
+            int yCoord = Mathf.FloorToInt(zPos * input.resolution / input.size);
+
+            xCoord = Mathf.Clamp(xCoord, 0, input.resolution);
+            yCoord = Mathf.Clamp(yCoord, 0, input.resolution);
+
+            float yPos = data.vertices[xCoord * (input.resolution + 1) + yCoord].y;
+
+            Vector3 position = new Vector3(xPos, yPos, zPos);
+            GrassObject.AddGrassToData(grassData, position, i);
+        }
+
+        data.grass = grassData;
 
         return data;
     }

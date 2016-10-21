@@ -28,14 +28,14 @@ public static class NoiseGenerator {
         float roughnessPosY = (y + seed2) / roughnessScale;
 
         float roughness = Mathf.PerlinNoise(roughnessPosX, roughnessPosY);
-        roughness = 1 - roughness * roughness;
+        roughness = 1f - roughness * roughness;
 
         for (int i = 0; i < octaves; i++ )
         {
             float xPos = (x+seed) * frequency / scale;
             float yPos = (y+seed) * frequency / scale;
 
-            noiseValue += (i<2 ? 1 : roughness ) * Mathf.PerlinNoise(xPos, yPos) * amplitude;
+            noiseValue += (i<2 ? 1 : roughness * Mathf.Clamp(noiseValue,0,1)) * Mathf.PerlinNoise(xPos, yPos) * amplitude;
 
             frequency *= lacunarity;
             amplitude *= persistence;

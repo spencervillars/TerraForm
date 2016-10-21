@@ -55,7 +55,7 @@
 				+ c3.rgb * IN.vertexColor.z
 				+ c4.rgb * IN.vertexColor.w;
 
-			o.Normal = UnpackNormal(tex2D(_GrassNormal, IN.uv_GrassTex));
+			//o.Normal = UnpackNormal(tex2D(_GrassNormal, IN.uv_GrassTex));
 			
 			o.Alpha = 1;
 		}
