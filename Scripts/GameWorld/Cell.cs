@@ -206,6 +206,14 @@ public class Cell {
 
     }
 
+    private void GenerateTrees()
+    {
+        lock (loadLock)
+        {
+        }
+
+    }
+
     private void GenerateTerrainObject()
     {
         lock (loadLock)
@@ -253,10 +261,15 @@ public class Cell {
 
     public void UpdateMesh()
     {
+        MeshFilter filter;
+        lock (loadLock)
+        {
+            if (terrainObject == null)
+                return;
+            filter = terrainObject.GetComponent<MeshFilter>();
+        }
+
         Mesh mesh = TerrainGenerator.TerrainToMesh(terrainData);
-
-        MeshFilter filter = terrainObject.GetComponent<MeshFilter>();
-
         filter.mesh = mesh;
 
         MeshCollider collider = terrainObject.GetComponent<MeshCollider>();

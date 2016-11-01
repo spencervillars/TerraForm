@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class GrassObject {
 
-    static Vector3 scale = new Vector3(10, 5, 10);
+    static Vector3 scale = new Vector3(15, 7, 15);
     static int numQuads = 3;
 
     static Queue<GameObject> ReusableGrassQueue = new Queue<GameObject>();
@@ -17,13 +17,13 @@ public class GrassObject {
         ReusableGrassQueue.Enqueue(grass);
     }
 
-    public static void AddGrassToData(GrassData data, Vector3 position, int offset)
+    public static void AddGrassToData(GrassData data, Vector3 position, Vector3 up, int offset)
     {
         int start = numQuads * offset;
         for (int i = start; i < start + numQuads; i++)
         {
 
-            float rotation = i * (3.1416f / (float)numQuads);
+            float rotation = i * (3.1416f / (float)numQuads) + offset/(3.1415f*100);
 
             float xPos = Mathf.Cos(rotation) / 2;
             float yPos = Mathf.Sin(rotation) / 2;
@@ -31,10 +31,20 @@ public class GrassObject {
             float xPosNormal = Mathf.Cos(rotation + 3.1416f * 0.5f);
             float yPosNormal = Mathf.Sin(rotation + 3.1416f * 0.5f);
 
-            data.vertices[i * 4 + 0] = new Vector3(-1 * xPos * scale.x, 0, -1 * yPos * scale.z) + position;
-            data.vertices[i * 4 + 1] = new Vector3(xPos * scale.x, 0, yPos * scale.z) + position;
-            data.vertices[i * 4 + 2] = new Vector3(xPos * scale.x, 1 * scale.y, yPos * scale.z) + position;
-            data.vertices[i * 4 + 3] = new Vector3(-1 * xPos * scale.x, 1 * scale.y, -1 * yPos * scale.z) + position;
+            data.vertices[i * 4 + 0] = new Vector3(-1 * xPos * scale.x, 0, -1 * yPos * scale.z);
+            data.vertices[i * 4 + 1] = new Vector3(xPos * scale.x, 0, yPos * scale.z);
+            data.vertices[i * 4 + 2] = new Vector3(xPos * scale.x, 1 * scale.y, yPos * scale.z);
+            data.vertices[i * 4 + 3] = new Vector3(-1 * xPos * scale.x, 1 * scale.y, -1 * yPos * scale.z);
+
+            Quaternion q = new Quaternion();
+            q.SetFromToRotation(Vector3.up, up);
+
+            Matrix4x4 transform = Matrix4x4.TRS(Vector3.zero,q, Vector3.one);
+
+            for (int j = 0; j < 4; j ++ )
+            {
+                data.vertices[i * 4 + j] = transform.MultiplyVector(data.vertices[i * 4 + j]) + position;
+            }
 
             /*data.vertices[i * 4 + 4] = new Vector3(-1 * xPos * scale.x, 0, -1 * yPos * scale.z) + position;
             data.vertices[i * 4 + 5] = new Vector3(xPos * scale.x, 0, yPos * scale.z) + position;
@@ -61,10 +71,10 @@ public class GrassObject {
             data.normals[i * 4 + 2] = new Vector3(xPosNormal, 1, yPosNormal);
             data.normals[i * 4 + 3] = new Vector3(xPosNormal, 1, yPosNormal);*/
 
-            data.normals[i * 4 + 0] = new Vector3(0, 1, 0);
-            data.normals[i * 4 + 1] = new Vector3(0, 1, 0);
-            data.normals[i * 4 + 2] = new Vector3(0, 1, 0);
-            data.normals[i * 4 + 3] = new Vector3(0, 1, 0);
+            data.normals[i * 4 + 0] = up;// new Vector3(0, 1, 0);
+            data.normals[i * 4 + 1] = up;// new Vector3(0, 1, 0);
+            data.normals[i * 4 + 2] = up;// new Vector3(0, 1, 0);
+            data.normals[i * 4 + 3] = up;// new Vector3(0, 1, 0);
 
             /*data.normals[i * 4 + 4] = new Vector3(-1 * xPosNormal, 1, -1 * yPosNormal);
             data.normals[i * 4 + 5] = new Vector3(-1 * xPosNormal, 1, -1 * yPosNormal);
@@ -93,6 +103,8 @@ public class GrassObject {
 
         filter.mesh = mesh;
         renderer.material = material;
+
+        grassObject.layer = 8;
 
         return grassObject;
     }

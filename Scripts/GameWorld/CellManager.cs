@@ -4,8 +4,8 @@ using System.Collections.Generic;
 
 public class CellManager {
 
-    public int loadDistance = 30;
-    public int cellSize = 400;
+    public int loadDistance = 50;
+    public int cellSize = 500;
 
     public int curPosX = -9999999;
     public int curPosY = -9999999;
@@ -174,9 +174,12 @@ public class CellManager {
         if (KnowCell(pos))
             return;
 
-        Cell cell = new Cell(pos, cellSize);
-        cells[pos] = cell;
-        cell.RequestLoad();
+        lock (cellLock)
+        {
+            Cell cell = new Cell(pos, cellSize);
+            cells[pos] = cell;
+            cell.RequestLoad();
+        }
     }
 
     private void Unload(CellPos pos)
@@ -184,8 +187,11 @@ public class CellManager {
         if (!KnowCell(pos))
             return;
 
-        Cell cell = GetCellAtPosition(pos);
-        cell.Unload();
-        cells.Remove(pos);
+        lock (cellLock)
+        {
+            Cell cell = GetCellAtPosition(pos);
+            cell.Unload();
+            cells.Remove(pos);
+        }
     }
 }
