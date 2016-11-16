@@ -4,8 +4,8 @@ using System.Collections.Generic;
 
 public class CellManager {
 
-    public int loadDistance = 50;
-    public int cellSize = 500;
+    public int loadDistance = 25;
+    public int cellSize = 400;
 
     public int curPosX = -9999999;
     public int curPosY = -9999999;

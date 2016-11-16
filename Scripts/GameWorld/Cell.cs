@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Threading;
 
 public struct CellPos
 {
@@ -12,6 +13,21 @@ public enum LoadState
     Unloaded,
     Requesting,
     Loaded
+}
+
+public class TreeData
+{
+    public float rotation;
+    public Vector3 up;
+    public Vector3 position;
+
+    public TreeData( Vector3 up, Vector3 position, float rotation )
+    {
+        this.rotation = rotation;
+        this.position = position;
+        this.up = up;
+    }
+
 }
 
 public class Cell {
@@ -32,10 +48,12 @@ public class Cell {
     public int requestingResolution;
 
     public TerrainData terrainData;
+    public TreeData[] treeData;
     public float[] cachedNoiseMap;
 
     private GameObject terrainObject;
     private GameObject grassObject;
+    private GameObject[] treeObjects;
 
     public Cell( CellPos pos, int size )
     {
@@ -68,11 +86,18 @@ public class Cell {
 
     public void UpdateLoadstatus()
     {
-        lock (loadLock)
+        if ( Monitor.TryEnter(loadLock) )
         {
-            if (cachedNoiseMap != null && this.loadState == LoadState.Requesting)
+            try
             {
-                FinishLoading();
+                if (cachedNoiseMap != null && this.loadState == LoadState.Requesting)
+                {
+                    FinishLoading();
+                }
+            }
+            finally
+            {
+                Monitor.Exit(loadLock);
             }
         }
     }
@@ -121,9 +146,15 @@ public class Cell {
         }
 
         if (Lod <= 1)
+        {
             GenerateGrassObject();
+            GenerateTrees();
+        }
         else
+        {
             DestroyGrassObjects();
+            DestroyTreeObjects();
+        }
 
         if (currentResolution == resolutionLevel)
             return;
@@ -163,26 +194,30 @@ public class Cell {
         {
             if (cachedNoiseMap != null)
                 return;
-        }
 
-        float[] noisemap = NoiseGenerator.generate2DNoiseArray(position.x*size, position.y*size, ResolutionLevels[0] + 1, CellManager.GetCellManager().cellSize);
+            float[] noisemap = NoiseGenerator.generate2DNoiseArray(position.x*size, position.y*size, ResolutionLevels[0] + 1, CellManager.GetCellManager().cellSize);
 
-        lock(loadLock)
-        {
             cachedNoiseMap = noisemap;
+
+            TerrainGenerator.GenerateTreeData(this);
         }
     }
 
     private void GenerateGameObjects()
     {
         GenerateTerrainObject();
+        //GenerateTrees();
     }
 
     private void DestroyGameObjects()
     {
-        GameObject.Destroy(terrainObject);
-        terrainObject = null;
-        DestroyGrassObjects();
+        lock (loadLock)
+        {
+            GameObject.Destroy(terrainObject);
+            terrainObject = null;
+            DestroyGrassObjects();
+            DestroyTreeObjects();
+        }
     }
 
     private void DestroyGrassObjects()
@@ -193,6 +228,17 @@ public class Cell {
         GameObject.Destroy(grassObject);
 
         grassObject = null;
+    }
+
+    private void DestroyTreeObjects()
+    {
+        if (treeObjects == null)
+            return;
+
+        for (int i = 0; i < treeObjects.Length; i++)
+            GameObject.Destroy(treeObjects[i]);
+
+        treeObjects = null;
     }
 
     private void GenerateGrassObject()
@@ -210,8 +256,31 @@ public class Cell {
     {
         lock (loadLock)
         {
+            if (treeData == null || treeObjects != null || terrainObject == null)
+                return;
+            treeObjects = new GameObject[treeData.Length];
+            for ( int i = 0; i < treeData.Length; i++ )
+            {
+                MakeTreeObject(treeData[i], i);
+            }
         }
+    }
 
+    private void MakeTreeObject(TreeData data, int offset)
+    {
+        if (treeObjects[offset] != null || data == null)
+            return;
+
+        GameObject tree = (GameObject)GameObject.Instantiate(Resources.Load("Tree 1"));
+        //tree.GetComponent<Material>().color = new Color(0.64f,0.16f,0.16f);
+
+        tree.transform.parent = terrainObject.transform;
+        tree.transform.localPosition = data.position;
+        tree.transform.up = (Vector3.up + data.up)/2;
+        tree.transform.Rotate(new Vector3(0, Random.Range(0, 180), 0));
+        tree.transform.localScale = new Vector3(5,6,5);
+
+        treeObjects[offset] = tree;
     }
 
     private void GenerateTerrainObject()
@@ -229,7 +298,10 @@ public class Cell {
         lock (loadLock)
         {
             if (terrainObject != null)
+            {
+                GameObject.Destroy(terrain);
                 return;
+            }
             this.terrainObject = terrain;
         }
 

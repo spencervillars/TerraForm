@@ -94,6 +94,7 @@ public class GrassObject {
 
         MeshFilter filter = grassObject.AddComponent<MeshFilter>();
         MeshRenderer renderer = grassObject.AddComponent<MeshRenderer>();
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         Mesh mesh = new Mesh();
         mesh.vertices = data.vertices;
