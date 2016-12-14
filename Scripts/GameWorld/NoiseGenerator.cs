@@ -29,7 +29,7 @@ public static class NoiseGenerator {
 
     public static float generateNoise( float x, float y )
     {
-        float noiseValue = -0.5f;
+        float noiseValue = 0.0f;
         float amplitude = 1f;
         float frequency = 1f;
 
