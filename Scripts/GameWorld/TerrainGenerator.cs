@@ -93,7 +93,7 @@ public class TerrainGenerator {
     public static int threadCount = 4;
 
     public static int GrassCount = 4000;
-    public static int TreeCount = 25;
+    public static int TreeCount = 75;
 
     static Vector3 CalculateNormal(Vector3 a, Vector3 b, Vector3 c)
     {
@@ -393,7 +393,7 @@ public class TerrainGenerator {
         if (cell.cachedNoiseMap == null || cell.treeData != null)
             return;
 
-        System.Random random = new System.Random(new System.DateTime().Millisecond);
+        System.Random random = new System.Random((int)DateTime.Now.Ticks & 0x0000FFFF);
         TreeData[] data = new TreeData[TreeCount];
 
         float cellSize = CellManager.GetCellManager().cellSize;
@@ -405,6 +405,22 @@ public class TerrainGenerator {
         {
             float xPos = (float)random.NextDouble() * cellSize;
             float zPos = (float)random.NextDouble() * cellSize;
+
+            if (random.NextDouble() > Math.Pow(NoiseGenerator.Roughness(xPos + cell.position.x * cell.size, zPos + cell.position.y * cell.size), 3))
+                continue;
+
+            bool outerbreak = false;
+            for ( int j = 0; j < i; j++ )
+            {
+                TreeData tree = data[j];
+                if( tree != null && (Math.Abs(tree.position.x - xPos) + Math.Abs(tree.position.z - zPos)) < 35 )
+                {
+                    outerbreak = true;
+                    break;
+                }
+            }
+            if (outerbreak)
+                continue;
 
             int xCoord1 = Mathf.FloorToInt(xPos * resolution / cellSize);
             int yCoord1 = Mathf.FloorToInt(zPos * resolution / cellSize);
@@ -439,7 +455,7 @@ public class TerrainGenerator {
                 Vector3 position = new Vector3(xPos, yPos, zPos);
                 position -= normal * 0.5f;//shrink it into the ground a bit more
 
-                TreeData treeData = new TreeData(normal, new Vector3(xPos, yPos, zPos), 0);
+                TreeData treeData = new TreeData(normal, new Vector3(xPos, yPos, zPos), 0, random.Next(1,3) );
                 data[i] = treeData;
             }
         }

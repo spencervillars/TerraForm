@@ -20,12 +20,14 @@ public class TreeData
     public float rotation;
     public Vector3 up;
     public Vector3 position;
+    public int treeType;
 
-    public TreeData( Vector3 up, Vector3 position, float rotation )
+    public TreeData( Vector3 up, Vector3 position, float rotation, int type )
     {
         this.rotation = rotation;
         this.position = position;
         this.up = up;
+        this.treeType = type;
     }
 
 }
@@ -145,7 +147,7 @@ public class Cell {
             }
         }
 
-        if (Lod <= 1)
+        if (Lod <= 2)
         {
             GenerateGrassObject();
             GenerateTrees();
@@ -271,12 +273,13 @@ public class Cell {
         if (treeObjects[offset] != null || data == null)
             return;
 
-        GameObject tree = (GameObject)GameObject.Instantiate(Resources.Load("Tree 1"));
+        string treename = "Tree " + data.treeType.ToString();
+        GameObject tree = (GameObject)GameObject.Instantiate(Resources.Load(treename));
         //tree.GetComponent<Material>().color = new Color(0.64f,0.16f,0.16f);
 
         tree.transform.parent = terrainObject.transform;
         tree.transform.localPosition = data.position;
-        tree.transform.up = (Vector3.up + data.up)/2;
+        tree.transform.up = (Vector3.up*2 + data.up)/3;
         tree.transform.Rotate(new Vector3(0, Random.Range(0, 180), 0));
         tree.transform.localScale = new Vector3(5,6,5);
 

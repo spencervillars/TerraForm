@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class CellManager {
 
-    public int loadDistance = 25;
+    public int loadDistance = 50;
     public int cellSize = 400;
 
     public int curPosX = -9999999;
