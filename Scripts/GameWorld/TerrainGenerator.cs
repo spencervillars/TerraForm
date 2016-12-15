@@ -12,12 +12,51 @@ public struct TerrainInput
     public Vector3 startPosition;
 }
 
+public class GrassData
+{
+    public int grassCount
+    {
+        set
+        {
+            positions = new Vector2[value];
+
+            vertices = new Vector3[value * 12];
+            uvs = new Vector2[vertices.Length];
+            normals = new Vector3[vertices.Length];
+
+            triangles = new int[3 * 3 * 4 * value];
+            _grasscount = value;
+        }
+
+        get
+        {
+            return _grasscount;
+        }
+    }
+
+    private int _grasscount;
+
+    public Vector2[] positions;
+    public Vector3[] vertices;
+    public Vector3[] normals;
+    public Vector2[] uvs;
+    public int[] triangles;
+
+    public GrassData()
+    {
+
+    }
+
+}
+
 public class TerrainData
 {
     public TerrainInput input;
     public Vector3[] vertices;
+    public Vector2[] uvs;
     public Color[] colors;
     public int[] triangles;
+    public GrassData grass;
 
     public TerrainData( TerrainInput input )
     {
@@ -34,8 +73,10 @@ public class TerrainData
         //
 
         vertices = new Vector3[(input.resolution+1)*(input.resolution+1)];
+        uvs = new Vector2[(input.resolution + 1) * (input.resolution + 1)];
         colors = new Color[vertices.Length];// 1 color per vertex
         triangles = new int[input.resolution * input.resolution * 2 * 3];
+        grass = new GrassData();
 
     }
 }
@@ -50,6 +91,14 @@ public class TerrainGenerator {
 
     public static Thread[] TerrainThreads = null;
     public static int threadCount = 4;
+
+    public static int GrassCount = 4000;
+    public static int TreeCount = 75;
+
+    static Vector3 CalculateNormal(Vector3 a, Vector3 b, Vector3 c)
+    {
+        return Vector3.Cross(b - a, c - a);
+    }
 
     public static void EnsureThreads()
     {
@@ -117,54 +166,61 @@ public class TerrainGenerator {
 
     public static void MeshDataThread()
     {
-        while (true)
+        try
         {
             while (true)
             {
-                CellPos input;
-                lock (inputQueue)
+                while (true)
                 {
-                    if (noiseInputQueue.Count == 0)
+                    CellPos input;
+                    lock (inputQueue)
                     {
-                        break;
+                        if (noiseInputQueue.Count == 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            input = noiseInputQueue.Dequeue();
+                        }
                     }
-                    else
+
+                    Cell cell = CellManager.GetCellManager().GetCellAtPosition(input);
+                    if (cell != null)
                     {
-                        input = noiseInputQueue.Dequeue();
+                        cell.GenerateNoiseMap();
                     }
                 }
 
-                Cell cell = CellManager.GetCellManager().GetCellAtPosition(input);
-                if (cell != null)
+                while (true)
                 {
-                    cell.GenerateNoiseMap();
+                    TerrainInput input;
+                    lock (inputQueue)
+                    {
+                        if (inputQueue.Count == 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            input = inputQueue.Dequeue();
+                        }
+                    }
+
+                    TerrainData data = GenerateTerrain(input);
+
+                    lock (outputDictionary)
+                    {
+                        outputDictionary[input.cellPosition] = data;
+                    }
                 }
+
+                Thread.Sleep(20);
             }
-
-            while (true)
-            {
-                TerrainInput input;
-                lock (inputQueue)
-                {
-                    if (inputQueue.Count == 0)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        input = inputQueue.Dequeue();
-                    }
-                }
-
-                TerrainData data = GenerateTerrain(input);
-
-                lock(outputDictionary)
-                {
-                    outputDictionary[input.cellPosition] = data;
-                }
-            }
-
-            Thread.Sleep(20);
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
         }
     }
 
@@ -189,6 +245,8 @@ public class TerrainGenerator {
         lock (cell.loadLock)
         {
             noiseMap = cell.cachedNoiseMap;
+            if (noiseMap == null)
+                return null;
         }
     
         float step = ((float)input.size) / ((float)input.resolution);
@@ -207,7 +265,10 @@ public class TerrainGenerator {
                 float zPos = y * step;
 
                 data.vertices[position] = new Vector3(xPos, yPos, zPos);
-                data.colors[position] = ColorManager.ColorFromNoise(noiseMap[noiseMapPosition]);
+                data.uvs[position] = new Vector2(xPos, zPos) / input.size;
+
+                Color color = ColorManager.ColorPoint(xPos + input.startPosition.x, zPos + input.startPosition.z, noiseMap[noiseMapPosition]);
+                data.colors[position] = color;
             }
         }
 
@@ -261,20 +322,145 @@ public class TerrainGenerator {
             }
         }
 
+        GrassData grassData = new GrassData();
+        grassData.grassCount = (input.resolution >= Cell.ResolutionLevels[2]) ? GrassCount : 0;
+
+        System.Random random = new System.Random(new System.DateTime().Millisecond);
+
+        for (int i = 0; i < grassData.grassCount; i++)
+        {
+            float xPos = (float)random.NextDouble() * input.size;
+            float zPos = (float)random.NextDouble() * input.size;
+
+            int xCoord1 = Mathf.FloorToInt(xPos * input.resolution / input.size);
+            int yCoord1 = Mathf.FloorToInt(zPos * input.resolution / input.size);
+
+            xCoord1 = Mathf.Clamp(xCoord1, 0, input.resolution-1);
+            yCoord1 = Mathf.Clamp(yCoord1, 0, input.resolution-1);
+
+            int xCoord2 = xCoord1 + 1;
+            int yCoord2 = yCoord1 + 1;
+
+            bool x_or_y = (xPos - xCoord1 * step) > (zPos - yCoord2 * step);
+            int xCoord3 = x_or_y ? xCoord2 : xCoord1;
+            int yCoord3 = x_or_y ? yCoord1 : yCoord2;
+
+            float yPos1 = data.vertices[xCoord1 * (input.resolution + 1) + yCoord1].y;
+            float yPos2 = data.vertices[xCoord2 * (input.resolution + 1) + yCoord2].y;
+            float yPos3 = data.vertices[xCoord3 * (input.resolution + 1) + yCoord3].y;
+            
+            Vector3 a = new Vector3(xCoord1 * step, yPos1, yCoord1 * step);
+            Vector3 b = new Vector3(xCoord2 * step, yPos2, yCoord2 * step);
+            Vector3 c = new Vector3(xCoord3 * step, yPos3, yCoord3 * step);
+
+            Vector3 normal = x_or_y ? CalculateNormal(a,b,c) : CalculateNormal(a, c, b);
+            normal.Normalize();
+
+            float yPos = yPos = -1 * (normal.x * (xPos - a.x) + normal.z * (zPos - a.z) ) / normal.y + a.y; // formula for coordinate in a plane of 3 points with normal
+
+            Vector3 position = new Vector3(xPos, yPos, zPos);
+            position -= normal * 0.5f;//shrink it into the ground a bit more
+
+            if (data.colors[xCoord1 * (input.resolution + 1) + yCoord1] == ColorManager.plainsColor)
+                GrassObject.AddGrassToData(grassData, position, normal, i);
+        }
+
+        data.grass = grassData;
+
         return data;
     }
 
     public static Mesh TerrainToMesh( TerrainData data )
     {
+
+        if (data == null)
+            return null;
+
         Mesh mesh = new Mesh();
         mesh.vertices = data.vertices;
         mesh.colors = data.colors;
         mesh.triangles = data.triangles;
+        mesh.uv = mesh.uv2 = mesh.uv3 = mesh.uv4 = data.uvs;
 
         mesh.RecalculateBounds();
         mesh.RecalculateNormals();
 
         return mesh;
+    }
+
+    public static void GenerateTreeData( Cell cell )
+    {
+        if (cell.cachedNoiseMap == null || cell.treeData != null)
+            return;
+
+        System.Random random = new System.Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+        TreeData[] data = new TreeData[TreeCount];
+
+        float cellSize = CellManager.GetCellManager().cellSize;
+        int resolution = Cell.ResolutionLevels[0];
+
+        float step = cellSize / resolution;
+
+        for (int i = 0; i < TreeCount; i++)
+        {
+            float xPos = (float)random.NextDouble() * cellSize;
+            float zPos = (float)random.NextDouble() * cellSize;
+
+            if (random.NextDouble() > Math.Pow(NoiseGenerator.Roughness(xPos + cell.position.x * cell.size, zPos + cell.position.y * cell.size), 3))
+                continue;
+
+            bool outerbreak = false;
+            for ( int j = 0; j < i; j++ )
+            {
+                TreeData tree = data[j];
+                if( tree != null && (Math.Abs(tree.position.x - xPos) + Math.Abs(tree.position.z - zPos)) < 35 )
+                {
+                    outerbreak = true;
+                    break;
+                }
+            }
+            if (outerbreak)
+                continue;
+
+            int xCoord1 = Mathf.FloorToInt(xPos * resolution / cellSize);
+            int yCoord1 = Mathf.FloorToInt(zPos * resolution / cellSize);
+
+            xCoord1 = Mathf.Clamp(xCoord1, 0, resolution - 1);
+            yCoord1 = Mathf.Clamp(yCoord1, 0, resolution - 1);
+
+            int xCoord2 = xCoord1 + 1;
+            int yCoord2 = yCoord1 + 1;
+
+            bool x_or_y = (xPos - xCoord1 * step) > (zPos - yCoord2 * step);
+            int xCoord3 = x_or_y ? xCoord2 : xCoord1;
+            int yCoord3 = x_or_y ? yCoord1 : yCoord2;
+
+            float yPos1 = cell.cachedNoiseMap[xCoord1 * (resolution + 1) + yCoord1] * HeightScale;
+            float yPos2 = cell.cachedNoiseMap[xCoord2 * (resolution + 1) + yCoord2] * HeightScale;
+            float yPos3 = cell.cachedNoiseMap[xCoord3 * (resolution + 1) + yCoord3] * HeightScale;
+
+            Vector3 a = new Vector3(xCoord1 * step, yPos1, yCoord1 * step);
+            Vector3 b = new Vector3(xCoord2 * step, yPos2, yCoord2 * step);
+            Vector3 c = new Vector3(xCoord3 * step, yPos3, yCoord3 * step);
+
+            Vector3 normal = x_or_y ? CalculateNormal(a, b, c) : CalculateNormal(a, c, b);
+            normal.Normalize();
+
+            float yPos = yPos = -1 * (normal.x * (xPos - a.x) + normal.z * (zPos - a.z)) / normal.y + a.y; // formula for coordinate in a plane of 3 points with normal
+
+            Color color = ColorManager.ColorFromNoise(yPos / HeightScale);
+            if ( (color == ColorManager.plainsColor || color == ColorManager.mountainsColor) )
+            {
+
+                Vector3 position = new Vector3(xPos, yPos, zPos);
+                position -= normal * 0.5f;//shrink it into the ground a bit more
+
+                TreeData treeData = new TreeData(normal, new Vector3(xPos, yPos, zPos), 0, random.Next(1,3) );
+                data[i] = treeData;
+            }
+        }
+
+        cell.treeData = data;
     }
 
 }

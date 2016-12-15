@@ -4,8 +4,8 @@ using System.Collections.Generic;
 
 public class CellManager {
 
-    public int loadDistance = 25;
-    public int cellSize = 1000;
+    public int loadDistance = 50;
+    public int cellSize = 400;
 
     public int curPosX = -9999999;
     public int curPosY = -9999999;
@@ -40,8 +40,8 @@ public class CellManager {
         UpdateCells();
 
         Vector3 position = ObjectManager.GetObjectManager().GetPlayerPosition();
-        int posX = ((int)position.x) / cellSize;
-        int posY = ((int)position.z) / cellSize;
+        int posX = Mathf.FloorToInt(position.x/cellSize);
+        int posY = Mathf.FloorToInt(position.z/cellSize);
 
         TerrainGenerator.Update();
 
@@ -158,7 +158,7 @@ public class CellManager {
         int counter = 0;
         int i = 1;
 
-        while ( i < distance )
+        while ( i <= distance )
         {
             i *= 4;
             counter++;
@@ -174,9 +174,12 @@ public class CellManager {
         if (KnowCell(pos))
             return;
 
-        Cell cell = new Cell(pos, cellSize);
-        cells[pos] = cell;
-        cell.RequestLoad();
+        lock (cellLock)
+        {
+            Cell cell = new Cell(pos, cellSize);
+            cells[pos] = cell;
+            cell.RequestLoad();
+        }
     }
 
     private void Unload(CellPos pos)
@@ -184,8 +187,11 @@ public class CellManager {
         if (!KnowCell(pos))
             return;
 
-        Cell cell = GetCellAtPosition(pos);
-        cell.Unload();
-        cells.Remove(pos);
+        lock (cellLock)
+        {
+            Cell cell = GetCellAtPosition(pos);
+            cell.Unload();
+            cells.Remove(pos);
+        }
     }
 }

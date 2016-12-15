@@ -21,6 +21,7 @@ CGINCLUDE
 	
 	int4 _SceneFogMode; // x = fog mode, y = use radial flag
 	float4 _SceneFogParams;
+	half4 fogColor;
 	#ifndef UNITY_APPLY_FOG
 	half4 unity_FogColor;
 	half4 unity_FogDensity;
@@ -143,7 +144,7 @@ CGINCLUDE
 		
 		// Lerp between fog color & original scene color
 		// by fog amount
-		return lerp (unity_FogColor, sceneColor, fogFac);
+		return lerp (fogColor, sceneColor, fogFac);
 	}
 
 ENDCG

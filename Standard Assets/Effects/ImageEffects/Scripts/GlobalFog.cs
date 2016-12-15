@@ -93,20 +93,21 @@ namespace UnityStandardAssets.ImageEffects
             fogMaterial.SetVector ("_HeightParams", new Vector4 (height, FdotC, paramK, heightDensity*0.5f));
             fogMaterial.SetVector ("_DistanceParams", new Vector4 (-Mathf.Max(startDistance,0.0f), excludeDepth, 0, 0));
 
-            var sceneMode= RenderSettings.fogMode;
+            var sceneMode = FogMode.Exponential;// RenderSettings.fogMode;
             var sceneDensity= RenderSettings.fogDensity;
             var sceneStart= RenderSettings.fogStartDistance;
             var sceneEnd= RenderSettings.fogEndDistance;
             Vector4 sceneParams;
             bool  linear = (sceneMode == FogMode.Linear);
             float diff = linear ? sceneEnd - sceneStart : 0.0f;
-            float invDiff = Mathf.Abs(diff) > 0.0001f ? 1.0f / diff : 0.0f;
+            float invDiff = Mathf.Abs(diff) > 0.001f ? 1.0f / diff : 0.0f;
             sceneParams.x = sceneDensity * 1.2011224087f; // density / sqrt(ln(2)), used by Exp2 fog mode
-            sceneParams.y = sceneDensity * 1.4426950408f; // density / ln(2), used by Exp fog mode
+            sceneParams.y = 0.0001f;// sceneDensity * 1.4426950408f; // density / ln(2), used by Exp fog mode
             sceneParams.z = linear ? -invDiff : 0.0f;
             sceneParams.w = linear ? sceneEnd * invDiff : 0.0f;
             fogMaterial.SetVector ("_SceneFogParams", sceneParams);
 			fogMaterial.SetVector ("_SceneFogMode", new Vector4((int)sceneMode, useRadialDistance ? 1 : 0, 0, 0));
+            fogMaterial.SetVector("fogColor", new Vector4(0.9f,0.9f,1f,0f));
 
             int pass = 0;
             if (distanceFog && heightFog)

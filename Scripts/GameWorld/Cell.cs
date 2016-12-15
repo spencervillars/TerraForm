@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Threading;
 
 public struct CellPos
 {
@@ -14,11 +15,29 @@ public enum LoadState
     Loaded
 }
 
+public class TreeData
+{
+    public float rotation;
+    public Vector3 up;
+    public Vector3 position;
+    public int treeType;
+
+    public TreeData( Vector3 up, Vector3 position, float rotation, int type )
+    {
+        this.rotation = rotation;
+        this.position = position;
+        this.up = up;
+        this.treeType = type;
+    }
+
+}
+
 public class Cell {
 
     // Constants... Why can't you define these at the head in C#???
     public static string terrainShaderName = "Custom/StandardVertex";
-    public static int[] ResolutionLevels = { 60, 60, 30, 20, 10 }; 
+    public static string terrainMaterialName = "Materials/Terrain";
+    public static int[] ResolutionLevels = { 80,80,40,20,10 }; 
 
     public CellPos position;
     public int size;
@@ -30,10 +49,13 @@ public class Cell {
     public int currentResolution;
     public int requestingResolution;
 
-    public  TerrainData terrainData;
+    public TerrainData terrainData;
+    public TreeData[] treeData;
     public float[] cachedNoiseMap;
 
     private GameObject terrainObject;
+    private GameObject grassObject;
+    private GameObject[] treeObjects;
 
     public Cell( CellPos pos, int size )
     {
@@ -66,11 +88,18 @@ public class Cell {
 
     public void UpdateLoadstatus()
     {
-        lock (loadLock)
+        if ( Monitor.TryEnter(loadLock) )
         {
-            if (cachedNoiseMap != null && this.loadState == LoadState.Requesting)
+            try
             {
-                FinishLoading();
+                if (cachedNoiseMap != null && this.loadState == LoadState.Requesting)
+                {
+                    FinishLoading();
+                }
+            }
+            finally
+            {
+                Monitor.Exit(loadLock);
             }
         }
     }
@@ -92,8 +121,7 @@ public class Cell {
             // Should this be in the lock?
             // It's like to take a LOT of time, but also
             // We really can't have an object unloaded while it's trying to make the gameobject....
-            if (terrainObject == null)
-                GenerateGameObject();
+            GenerateGameObjects();
         }
     }
 
@@ -106,6 +134,29 @@ public class Cell {
         this.Lod = Lod;
 
         int resolutionLevel = ResolutionLevels[Lod];
+
+        lock (loadLock)
+        {
+            if (terrainObject != null)
+            {
+                MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
+                if (Lod == 0)
+                    collider.sharedMesh = terrainObject.GetComponent<MeshFilter>().mesh;
+                else
+                    collider.sharedMesh = null;
+            }
+        }
+
+        if (Lod <= 2)
+        {
+            GenerateGrassObject();
+            GenerateTrees();
+        }
+        else
+        {
+            DestroyGrassObjects();
+            DestroyTreeObjects();
+        }
 
         if (currentResolution == resolutionLevel)
             return;
@@ -120,15 +171,15 @@ public class Cell {
     {
         this.terrainData = data;
         UpdateMesh();
+        GenerateGrassObject();
     }
 
     public void Unload()
     {
         lock (loadLock)
         {
+            DestroyGameObjects();
             loadState = LoadState.Unloaded;
-            GameObject.Destroy(terrainObject);
-            terrainObject = null;
             terrainData = null;
             cachedNoiseMap = null;
         }
@@ -145,24 +196,119 @@ public class Cell {
         {
             if (cachedNoiseMap != null)
                 return;
-        }
 
-        float[] noisemap = NoiseGenerator.generate2DNoiseArray(position.x*size, position.y*size, ResolutionLevels[0] + 1, CellManager.GetCellManager().cellSize);
+            float[] noisemap = NoiseGenerator.generate2DNoiseArray(position.x*size, position.y*size, ResolutionLevels[0] + 1, CellManager.GetCellManager().cellSize);
 
-        lock(loadLock)
-        {
             cachedNoiseMap = noisemap;
+
+            TerrainGenerator.GenerateTreeData(this);
         }
     }
 
-    private void GenerateGameObject()
+    private void GenerateGameObjects()
     {
+        GenerateTerrainObject();
+        //GenerateTrees();
+    }
+
+    private void DestroyGameObjects()
+    {
+        lock (loadLock)
+        {
+            GameObject.Destroy(terrainObject);
+            terrainObject = null;
+            DestroyGrassObjects();
+            DestroyTreeObjects();
+        }
+    }
+
+    private void DestroyGrassObjects()
+    {
+        if (grassObject == null)
+            return;
+
+        GameObject.Destroy(grassObject);
+
+        grassObject = null;
+    }
+
+    private void DestroyTreeObjects()
+    {
+        if (treeObjects == null)
+            return;
+
+        for (int i = 0; i < treeObjects.Length; i++)
+            GameObject.Destroy(treeObjects[i]);
+
+        treeObjects = null;
+    }
+
+    private void GenerateGrassObject()
+    {
+        lock (loadLock)
+        {
+            if (terrainData == null || grassObject != null || terrainObject == null || Lod > 1)
+                return;
+            grassObject = GrassObject.MakeGrassObject(terrainData.grass, terrainObject);
+        }
+
+    }
+
+    private void GenerateTrees()
+    {
+        lock (loadLock)
+        {
+            if (treeData == null || treeObjects != null || terrainObject == null)
+                return;
+            treeObjects = new GameObject[treeData.Length];
+            for ( int i = 0; i < treeData.Length; i++ )
+            {
+                MakeTreeObject(treeData[i], i);
+            }
+        }
+    }
+
+    private void MakeTreeObject(TreeData data, int offset)
+    {
+        if (treeObjects[offset] != null || data == null)
+            return;
+
+        string treename = "Tree " + data.treeType.ToString();
+        GameObject tree = (GameObject)GameObject.Instantiate(Resources.Load(treename));
+        //tree.GetComponent<Material>().color = new Color(0.64f,0.16f,0.16f);
+
+        tree.transform.parent = terrainObject.transform;
+        tree.transform.localPosition = data.position;
+        tree.transform.up = (Vector3.up*2 + data.up)/3;
+        tree.transform.Rotate(new Vector3(0, Random.Range(0, 180), 0));
+        tree.transform.localScale = new Vector3(5,6,5);
+
+        treeObjects[offset] = tree;
+    }
+
+    private void GenerateTerrainObject()
+    {
+        lock (loadLock)
+        {
+            if (terrainObject != null)
+                return;
+        }
+
         string gameObjectName = "CellTerrain_" + position.x.ToString() + "_" + position.y.ToString();
 
         GameObject terrain = new GameObject(gameObjectName);
-        this.terrainObject = terrain;
 
-        Material material = new Material(Shader.Find(terrainShaderName));
+        lock (loadLock)
+        {
+            if (terrainObject != null)
+            {
+                GameObject.Destroy(terrain);
+                return;
+            }
+            this.terrainObject = terrain;
+        }
+
+        Material material = (Material)Resources.Load(terrainMaterialName, typeof(Material));
 
         MeshFilter filter = terrain.AddComponent<MeshFilter>();
         MeshRenderer renderer = terrain.AddComponent<MeshRenderer>();
@@ -190,15 +336,20 @@ public class Cell {
 
     public void UpdateMesh()
     {
+        MeshFilter filter;
+        lock (loadLock)
+        {
+            if (terrainObject == null)
+                return;
+            filter = terrainObject.GetComponent<MeshFilter>();
+        }
+
         Mesh mesh = TerrainGenerator.TerrainToMesh(terrainData);
-
-        MeshFilter filter = terrainObject.GetComponent<MeshFilter>();
-        MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
-
         filter.mesh = mesh;
 
-        if (currentResolution == ResolutionLevels[0])
-            collider.sharedMesh = mesh;
+        MeshCollider collider = terrainObject.GetComponent<MeshCollider>();
+        if (Lod == 0)
+            collider.sharedMesh = terrainObject.GetComponent<MeshFilter>().mesh;
         else
             collider.sharedMesh = null;
     }
